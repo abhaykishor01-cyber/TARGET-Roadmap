@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -242,45 +243,95 @@ function computeRequirement(){
   return { completedCPI:completed.cpi, completedCredits:completed.credits, futCr, totalCr, requiredSPI, maxPossibleCPI, feasible: requiredSPI<=10.0001 };
 }
 
-/* ================= AI CALL ================= */
-async function callAIAnalysis(){
-  const req = computeRequirement();
-  const historyPayload = state.history.map(s=>({ semester:s.semNum, courses:s.courses.map(c=>({name:c.name||"Untitled", credits:Number(c.credits), grade:Number(c.grade)})) }));
-  const futurePayload = state.future.map(s=>({ semester:s.semNum, courses:s.courses.map(c=>({name:c.name||"Untitled", credits:Number(c.credits)})) }));
-
-  const sys = "You are an academic profiling engine inside a student planning tool. You output ONLY strict minified JSON, no markdown fences, no commentary, no extra keys. Keep every text field very short (under 14 words) to stay within budget.";
-  const user = `Student academic history (completed):
-${JSON.stringify(historyPayload)}
-
-Future planned courses (not yet taken):
-${JSON.stringify(futurePayload)}
-
-Current CPI: ${req.completedCPI.toFixed(2)}, Target CPI: ${state.targetCPI}, by semester ${state.targetSemester}.
-
-Analyze the student's demonstrated strengths and weaknesses from grade patterns (consider subject type: math-heavy, physics-heavy, programming, theory, design). Then for EVERY future course, estimate how difficult it will be FOR THIS SPECIFIC STUDENT (not in general) based on how it relates to their strengths/weaknesses, as a difficultyScore from 0 (very easy for them) to 1 (very hard for them), plus a one-line rationale (max 12 words) and a difficulty label.
-
-Return ONLY this exact JSON shape (minified, no markdown):
-{"strengths":["..."],"average":["..."],"weaknesses":["..."],"profile":"one short paragraph, max 40 words","courseAnalysis":[{"semester":N,"course":"name","difficultyScore":0.0,"difficultyLabel":"Low|Medium|Medium-High|High","traits":["..."],"rationale":"..."}],"recommendations":["...","...","...","..."]}`;
-
-  const response = await fetch("/api/analyze", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      system: sys,
-      messages:[{ role:"user", content:user }]
-    })
+/* ================= LOCAL ANALYSIS ENGINE (no API, no cost) ================= */
+const CATEGORY_KEYWORDS = {
+  "Mathematics": ["calculus","algebra","differential","ode","math","analysis","statistics","probability","linear","numerical","discrete","geometry","complex"],
+  "Physics": ["physics","mechanics","thermodynamics","dynamics","fluid","optics","quantum","electromagnetic","waves","heat"],
+  "Programming": ["programming","coding","dsa","data structures","algorithm","software","computer science","python","java","web","app development","oop"],
+  "Electrical/Electronics": ["electrical","circuit","electronics","signal","control system","power system","semiconductor","embedded"],
+  "Theory/Humanities": ["theory","history","economics","management","ethics","communication","humanities","environmental","sociology","psychology","language","english"],
+  "Design": ["design","cad","graphics","architecture","drawing","drafting","ui","ux"],
+  "Chemistry/Materials": ["chemistry","chemical","materials","metallurgy","polymer"],
+  "Biology": ["biology","bio","genetics","anatomy","physiology"]
+};
+function categoriesFor(name){
+  const n=(name||"").toLowerCase();
+  const hit=[];
+  Object.keys(CATEGORY_KEYWORDS).forEach(cat=>{
+    if(CATEGORY_KEYWORDS[cat].some(k=> n.includes(k))) hit.push(cat);
   });
-  const data = await response.json();
-  if(data.error){ throw new Error(data.error.message || "API error"); }
-  const text = (data.content||[]).map(b=>b.text||"").join("");
-  if(!text.trim()) throw new Error("Empty response from model");
-  const clean = text.replace(/```json|```/g,"").trim();
-  try{
-    return JSON.parse(clean);
-  }catch(parseErr){
-    throw new Error("Could not parse AI response as JSON");
-  }
+  return hit;
 }
+function buildCategoryStats(history){
+  const stats={};
+  history.forEach(sem=> sem.courses.forEach(c=>{
+    const cats = categoriesFor(c.name);
+    const credits=Number(c.credits)||0, grade=Number(c.grade)||0;
+    if(cats.length===0) return;
+    cats.forEach(cat=>{
+      if(!stats[cat]) stats[cat]={points:0,credits:0};
+      stats[cat].points += credits*grade;
+      stats[cat].credits += credits;
+    });
+  }));
+  const avgs={};
+  Object.keys(stats).forEach(cat=> avgs[cat] = stats[cat].credits>0 ? stats[cat].points/stats[cat].credits : null);
+  return avgs;
+}
+function localAnalysis(){
+  const baseline = computeCPI(state.history).cpi;
+  const catAvgs = buildCategoryStats(state.history);
+  const strengths=[], average=[], weaknesses=[];
+  Object.keys(catAvgs).forEach(cat=>{
+    const diff = catAvgs[cat]-baseline;
+    if(diff>=0.5) strengths.push(cat);
+    else if(diff<=-0.5) weaknesses.push(cat);
+    else average.push(cat);
+  });
+
+  const profileParts=[];
+  if(strengths.length) profileParts.push(`Strongest in ${strengths.join(", ")}`);
+  if(weaknesses.length) profileParts.push(`grades dip in ${weaknesses.join(", ")}`);
+  if(!strengths.length && !weaknesses.length) profileParts.push("performance is fairly even across subject areas so far");
+  const profile = profileParts.join("; ") + `, against an overall CPI of ${baseline.toFixed(2)}.`;
+
+  const courseAnalysis=[];
+  state.future.forEach(sem=> sem.courses.forEach(c=>{
+    const cats = categoriesFor(c.name);
+    let score, rationale, traits;
+    if(cats.length===0){
+      score=0.55; traits=["Unclassified"];
+      rationale="No close match to your past subjects — treated as unfamiliar terrain.";
+    } else {
+      const known = cats.filter(cat=> catAvgs[cat]!=null);
+      if(known.length===0){
+        score=0.6; traits=cats;
+        rationale=`First ${cats[0]} course on record — no track history here yet.`;
+      } else {
+        const avgDiff = known.reduce((a,cat)=> a+(catAvgs[cat]-baseline),0)/known.length;
+        score = clamp(0.5 - avgDiff/6, 0, 1);
+        traits = cats;
+        if(avgDiff>=0.5) rationale=`Aligns with your strong ${cats[0]} track record.`;
+        else if(avgDiff<=-0.5) rationale=`Historically a tougher area (${cats[0]}) for you.`;
+        else rationale=`Roughly in line with your overall average.`;
+      }
+    }
+    let difficultyLabel = score<0.3?"Low":score<0.5?"Medium":score<0.75?"Medium-High":"High";
+    courseAnalysis.push({ semester:sem.semNum, course:c.name||"Untitled", difficultyScore:score, difficultyLabel, traits, rationale });
+  }));
+
+  const recs=[];
+  if(strengths.length) recs.push(`Lean into ${strengths[0]} — it's historically your highest-scoring area, so small extra effort there pays off fastest.`);
+  if(weaknesses.length) recs.push(`Give ${weaknesses[0]} extra early attention each term — it's the area most likely to pull your SPI down.`);
+  let topCourse=null, topCredits=0;
+  state.future.forEach(sem=> sem.courses.forEach(c=>{ if(Number(c.credits)>topCredits){ topCredits=Number(c.credits); topCourse=c.name; }}));
+  if(topCourse) recs.push(`${topCourse} carries the most credit weight ahead — a small grade gain there moves your CPI more than anywhere else.`);
+  recs.push("Stay consistent across every course; one low grade in a high-credit subject is harder to recover from than steady mid-range performance everywhere.");
+  recs.push("Revisit this roadmap after each semester's results — your category averages will sharpen as more grades come in.");
+
+  return { strengths, average, weaknesses, profile, courseAnalysis, recommendations:recs };
+}
+
 
 /* ================= ROADMAP BUILDER ================= */
 function buildRoadmap(analysis){
@@ -676,7 +727,8 @@ function attachHandlers(){
     let mi=0;
     const interval = setInterval(()=>{ mi=(mi+1)%msgs.length; const el=document.getElementById('loading-msg'); if(el) el.textContent=msgs[mi]; }, 1300);
     try{
-      const analysis = await callAIAnalysis();
+      await new Promise(r=> setTimeout(r, 1600)); // let the loading animation play
+      const analysis = localAnalysis();
       state.analysis = analysis;
       state.roadmap = buildRoadmap(analysis);
       clearInterval(interval);
@@ -684,7 +736,7 @@ function attachHandlers(){
     }catch(e){
       clearInterval(interval);
       console.error(e);
-      state.errorMsg = "Couldn't generate your roadmap — " + (e && e.message ? e.message : "unknown error") + ". If you're viewing this as a downloaded file outside Claude, the AI step needs to run inside the Claude chat interface.";
+      state.errorMsg = "Couldn't generate your roadmap — " + (e && e.message ? e.message : "unknown error") + ".";
       state.step=3; render();
     }
   };

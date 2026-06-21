@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waypoint — Your Academic Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#12141c;
+    --ink-2:#1b1f2c;
+    --ink-3:#262b3b;
+    --hairline:#383d52;
+    --parchment:#f3ead6;
+    --parchment-2:#ece0c4;
+    --brass:#c9a227;
+    --brass-bright:#e3bc3e;
+    --sage:#7a9471;
+    --rust:#b25539;
+    --text-dark:#ece6d6;
+    --text-dim:#9aa0b4;
+    --text-on-parchment:#241f14;
+    --text-on-parchment-dim:#5c5440;
+    --radius:14px;
+    --serif: "Fraunces", serif;
+    --sans: "Inter", sans-serif;
+    --mono: "IBM Plex Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--text-dark);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(ellipse 800px 500px at 15% -10%, rgba(201,162,39,0.08), transparent),
+      radial-gradient(ellipse 700px 600px at 110% 30%, rgba(122,148,113,0.06), transparent);
+    pointer-events:none;
+    z-index:0;
+  }
+  #app{position:relative; z-index:1; max-width:1040px; margin:0 auto; padding:28px 20px 80px;}
+
+  /* ---------- top bar ---------- */
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:34px;}
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--serif); font-weight:600; font-size:21px; letter-spacing:0.2px;}
+  .brand .mark{width:26px;height:26px;flex:none;}
+  .brand small{font-family:var(--mono); font-size:10px; color:var(--text-dim); font-weight:400; letter-spacing:1.5px; display:block; margin-top:1px;}
+
+  /* ---------- trail nav ---------- */
+  .trail-nav{display:flex; align-items:center; gap:0; margin:0 0 40px; user-select:none;}
+  .trail-nav .seg{flex:1; height:2px; background:var(--hairline); position:relative; top:-13px;}
+  .trail-nav .seg.done{background:var(--brass);}
+  .station{display:flex; flex-direction:column; align-items:center; gap:8px; flex:none;}
+  .station .dot{width:13px;height:13px;border-radius:50%; background:var(--ink-3); border:2px solid var(--hairline); transition:all .25s;}
+  .station.done .dot{background:var(--brass); border-color:var(--brass);}
+  .station.current .dot{background:var(--ink); border-color:var(--brass-bright); box-shadow:0 0 0 4px rgba(227,188,62,0.18);}
+  .station .label{font-family:var(--mono); font-size:10.5px; letter-spacing:0.8px; color:var(--text-dim); text-transform:uppercase;}
+  .station.current .label{color:var(--brass-bright);}
+  .station.done .label{color:var(--text-dark);}
+
+  /* ---------- panels ---------- */
+  .panel{background:var(--ink-2); border:1px solid var(--hairline); border-radius:var(--radius); padding:36px; margin-bottom:20px;}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--brass-bright); margin:0 0 10px;}
+  h1.page-title{font-family:var(--serif); font-size:36px; font-weight:600; line-height:1.15; margin:0 0 14px; letter-spacing:-0.3px;}
+  p.lede{color:var(--text-dim); font-size:15.5px; line-height:1.6; max-width:620px; margin:0 0 6px;}
+
+  /* ---------- hero ---------- */
+  .hero{text-align:left; padding:54px 40px 40px;}
+  .hero h1{font-family:var(--serif); font-size:50px; font-weight:600; line-height:1.08; letter-spacing:-0.5px; margin:0 0 18px; max-width:620px;}
+  .hero h1 em{font-style:italic; color:var(--brass-bright);}
+  .hero p{font-size:17px; color:var(--text-dim); max-width:520px; line-height:1.65; margin:0 0 30px;}
+  .hero-examples{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:34px;}
+  .pill{font-family:var(--mono); font-size:12px; padding:7px 13px; border:1px solid var(--hairline); border-radius:100px; color:var(--text-dim);}
+
+  /* ---------- form elements ---------- */
+  label{display:block; font-family:var(--mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin-bottom:7px;}
+  input[type=number], input[type=text]{
+    width:100%; background:var(--ink); border:1px solid var(--hairline); border-radius:8px;
+    color:var(--text-dark); font-family:var(--sans); font-size:15px; padding:12px 13px;
+    transition:border-color .15s;
+  }
+  input:focus{outline:none; border-color:var(--brass);}
+  .field{margin-bottom:18px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:640px){.row3,.row2{grid-template-columns:1fr;}}
+
+  .course-row{display:grid; grid-template-columns:1fr 110px 110px 34px; gap:12px; align-items:end; margin-bottom:12px;}
+  .course-row.future{grid-template-columns:1fr 110px 34px;}
+  @media(max-width:640px){.course-row,.course-row.future{grid-template-columns:1fr;}}
+  .icon-btn{background:transparent; border:1px solid var(--hairline); color:var(--text-dim); border-radius:8px; width:38px; height:42px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;}
+  .icon-btn:hover{border-color:var(--rust); color:var(--rust);}
+
+  .sem-block{border:1px dashed var(--hairline); border-radius:10px; padding:22px 22px 6px; margin-bottom:22px; position:relative;}
+  .sem-block .sem-tag{position:absolute; top:-13px; left:18px; background:var(--ink-2); padding:0 10px; font-family:var(--mono); font-size:11.5px; letter-spacing:1px; color:var(--brass-bright);}
+  .add-course-btn{background:transparent; border:1px dashed var(--hairline); color:var(--text-dim); border-radius:8px; padding:10px 16px; font-family:var(--mono); font-size:12px; cursor:pointer; margin-bottom:18px;}
+  .add-course-btn:hover{border-color:var(--brass); color:var(--brass-bright);}
+
+  .sem-cpi-tag{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); position:absolute; top:-13px; right:18px; background:var(--ink-2); padding:0 10px;}
+
+  /* ---------- buttons ---------- */
+  .btn-row{display:flex; gap:12px; margin-top:28px; align-items:center;}
+  .btn{font-family:var(--sans); font-weight:600; font-size:14.5px; padding:13px 26px; border-radius:9px; border:none; cursor:pointer; transition:transform .12s, opacity .12s;}
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--brass-bright); color:#1a1605;}
+  .btn-primary:hover{opacity:0.92;}
+  .btn-ghost{background:transparent; color:var(--text-dim); border:1px solid var(--hairline);}
+  .btn-ghost:hover{color:var(--text-dark); border-color:var(--text-dim);}
+  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .error-msg{font-family:var(--mono); font-size:12.5px; color:var(--rust); margin-top:14px;}
+
+  /* ---------- loading ---------- */
+  .loading-wrap{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:90px 20px; text-align:center;}
+  .compass{width:64px; height:64px; margin-bottom:26px; animation:spin 2.2s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-wrap .msg{font-family:var(--mono); font-size:13px; color:var(--text-dim); letter-spacing:0.5px;}
+
+  /* ---------- output ---------- */
+  .status-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--hairline); border:1px solid var(--hairline); border-radius:12px; overflow:hidden; margin-bottom:26px;}
+  @media(max-width:700px){.status-grid{grid-template-columns:repeat(2,1fr);}}
+  .stat-cell{background:var(--ink-2); padding:20px 18px;}
+  .stat-cell .num{font-family:var(--mono); font-size:28px; font-weight:600; color:var(--brass-bright);}
+  .stat-cell .lbl{font-family:var(--mono); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin-top:5px;}
+
+  .chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:12px; padding:6px 12px; border-radius:100px; margin:0 8px 8px 0;}
+  .chip.sage{background:rgba(122,148,113,0.15); color:var(--sage); border:1px solid rgba(122,148,113,0.35);}
+  .chip.rust{background:rgba(178,85,57,0.15); color:#d98565; border:1px solid rgba(178,85,57,0.35);}
+  .chip.neutral{background:rgba(154,160,180,0.12); color:var(--text-dim); border:1px solid var(--hairline);}
+
+  .section-title{font-family:var(--serif); font-size:22px; font-weight:600; margin:36px 0 14px; display:flex; align-items:center; gap:10px;}
+  .section-title .tag{font-family:var(--mono); font-size:10px; color:var(--text-dim); border:1px solid var(--hairline); padding:3px 8px; border-radius:5px; letter-spacing:1px;}
+
+  /* trail chart */
+  .trail-card{background:var(--parchment); border-radius:12px; padding:26px 26px 14px; color:var(--text-on-parchment); overflow-x:auto;}
+  .trail-card svg{display:block; min-width:560px;}
+  .trail-legend{display:flex; gap:18px; flex-wrap:wrap; padding:14px 4px 6px; font-family:var(--mono); font-size:11px; color:var(--text-on-parchment-dim);}
+  .trail-legend .lg{display:flex; align-items:center; gap:6px;}
+  .trail-legend .sw{width:10px;height:10px;border-radius:50%;}
+
+  /* tables */
+  .sem-target-block{margin-bottom:22px;}
+  .sem-target-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+  .sem-target-head h3{font-family:var(--serif); font-size:17px; margin:0; font-weight:600;}
+  .sem-target-head .spi-tag{font-family:var(--mono); font-size:12px; color:var(--brass-bright);}
+  table.targets{width:100%; border-collapse:collapse; font-size:14px;}
+  table.targets th{text-align:left; font-family:var(--mono); font-size:10.5px; letter-spacing:0.8px; text-transform:uppercase; color:var(--text-dim); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--hairline);}
+  table.targets td{padding:11px 10px; border-bottom:1px solid var(--hairline);}
+  table.targets tr:last-child td{border-bottom:none;}
+  td.grade-target{font-family:var(--mono); font-weight:600;}
+  .diff-tag{font-family:var(--mono); font-size:10.5px; padding:3px 8px; border-radius:5px;}
+  .diff-tag.low{background:rgba(122,148,113,0.15); color:var(--sage);}
+  .diff-tag.med{background:rgba(201,162,39,0.15); color:var(--brass-bright);}
+  .diff-tag.high{background:rgba(178,85,57,0.15); color:#d98565;}
+  .rationale{font-size:12.5px; color:var(--text-dim); display:block; margin-top:3px;}
+
+  .explain-card{background:var(--ink-3); border-left:3px solid var(--brass); border-radius:0 10px 10px 0; padding:22px 26px; font-size:15px; line-height:1.7; color:var(--text-dark);}
+  .explain-card p{margin:0 0 12px;}
+  .explain-card p:last-child{margin-bottom:0;}
+
+  ul.recs{list-style:none; padding:0; margin:0; display:grid; gap:10px;}
+  ul.recs li{display:flex; gap:12px; align-items:flex-start; font-size:14.5px; line-height:1.55; color:var(--text-dark);}
+  ul.recs li .num{font-family:var(--mono); color:var(--brass-bright); font-size:13px; flex:none; padding-top:1px;}
+
+  .download-bar{display:flex; gap:12px; margin-top:38px; flex-wrap:wrap;}
+  .feasibility-warn{background:rgba(178,85,57,0.12); border:1px solid rgba(178,85,57,0.4); border-radius:10px; padding:16px 20px; font-size:13.5px; color:#e0a088; margin-bottom:22px; line-height:1.55;}
+
+  .restart-link{display:block; text-align:center; margin-top:30px; font-family:var(--mono); font-size:12px; color:var(--text-dim); cursor:pointer;}
+  .restart-link:hover{color:var(--brass-bright);}
+
+  #pdf-target{background:var(--ink);}
+
+  ::selection{background:rgba(201,162,39,0.35);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ================= STATE ================= */
+const state = {
+  step: 0,
+  completedSemesters: 2,
+  targetSemester: 5,
+  targetCPI: 8.0,
+  history: [],
+  future: [],
+  analysis: null,
+  roadmap: null,
+  errorMsg: ""
+};
+
+function freshCourse(){ return { name:"", credits:4, grade:7 }; }
+function freshFutureCourse(){ return { name:"", credits:4 }; }
+
+function ensureHistoryShape(){
+  const n = state.completedSemesters;
+  while(state.history.length < n) state.history.push({ semNum: state.history.length+1, courses:[freshCourse()] });
+  state.history.length = n;
+  state.history.forEach((s,i)=> s.semNum = i+1);
+}
+function ensureFutureShape(){
+  const start = state.completedSemesters+1;
+  const end = state.targetSemester;
+  const count = Math.max(0, end-start+1);
+  while(state.future.length < count) state.future.push({ semNum: start+state.future.length, courses:[freshFutureCourse()] });
+  state.future.length = count;
+  state.future.forEach((s,i)=> s.semNum = start+i);
+}
+
+/* ================= MATH ENGINE ================= */
+function semSPI(courses){
+  let pts=0, cr=0;
+  courses.forEach(c=>{ const credits=Number(c.credits)||0, grade=Number(c.grade)||0; pts+=credits*grade; cr+=credits; });
+  return cr>0 ? pts/cr : 0;
+}
+function computeCPI(history){
+  let pts=0, cr=0;
+  history.forEach(sem=> sem.courses.forEach(c=>{ const credits=Number(c.credits)||0, grade=Number(c.grade)||0; pts+=credits*grade; cr+=credits; }));
+  return { cpi: cr>0 ? pts/cr : 0, credits:cr, points:pts };
+}
+function futureCreditsTotal(){
+  let cr=0; state.future.forEach(sem=> sem.courses.forEach(c=> cr+=Number(c.credits)||0));
+  return cr;
+}
+function computeRequirement(){
+  const completed = computeCPI(state.history);
+  const futCr = futureCreditsTotal();
+  const totalCr = completed.credits + futCr;
+  const neededTotalPts = state.targetCPI * totalCr;
+  const neededFuturePts = neededTotalPts - completed.points;
+  const requiredSPI = futCr>0 ? neededFuturePts/futCr : 0;
+  const maxPossibleCPI = totalCr>0 ? (completed.points + futCr*10)/totalCr : 0;
+  return { completedCPI:completed.cpi, completedCredits:completed.credits, futCr, totalCr, requiredSPI, maxPossibleCPI, feasible: requiredSPI<=10.0001 };
+}
+
+/* ================= AI CALL ================= */
+async function callAIAnalysis(){
+  const req = computeRequirement();
+  const historyPayload = state.history.map(s=>({ semester:s.semNum, courses:s.courses.map(c=>({name:c.name||"Untitled", credits:Number(c.credits), grade:Number(c.grade)})) }));
+  const futurePayload = state.future.map(s=>({ semester:s.semNum, courses:s.courses.map(c=>({name:c.name||"Untitled", credits:Number(c.credits)})) }));
+
+  const sys = "You are an academic profiling engine inside a student planning tool. You output ONLY strict minified JSON, no markdown fences, no commentary, no extra keys. Keep every text field very short (under 14 words) to stay within budget.";
+  const user = `Student academic history (completed):
+${JSON.stringify(historyPayload)}
+
+Future planned courses (not yet taken):
+${JSON.stringify(futurePayload)}
+
+Current CPI: ${req.completedCPI.toFixed(2)}, Target CPI: ${state.targetCPI}, by semester ${state.targetSemester}.
+
+Analyze the student's demonstrated strengths and weaknesses from grade patterns (consider subject type: math-heavy, physics-heavy, programming, theory, design). Then for EVERY future course, estimate how difficult it will be FOR THIS SPECIFIC STUDENT (not in general) based on how it relates to their strengths/weaknesses, as a difficultyScore from 0 (very easy for them) to 1 (very hard for them), plus a one-line rationale (max 12 words) and a difficulty label.
+
+Return ONLY this exact JSON shape (minified, no markdown):
+{"strengths":["..."],"average":["..."],"weaknesses":["..."],"profile":"one short paragraph, max 40 words","courseAnalysis":[{"semester":N,"course":"name","difficultyScore":0.0,"difficultyLabel":"Low|Medium|Medium-High|High","traits":["..."],"rationale":"..."}],"recommendations":["...","...","...","..."]}`;
+
+  const response = await fetch("/api/analyze", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      system: sys,
+      messages:[{ role:"user", content:user }]
+    })
+  });
+  const data = await response.json();
+  if(data.error){ throw new Error(data.error.message || "API error"); }
+  const text = (data.content||[]).map(b=>b.text||"").join("");
+  if(!text.trim()) throw new Error("Empty response from model");
+  const clean = text.replace(/```json|```/g,"").trim();
+  try{
+    return JSON.parse(clean);
+  }catch(parseErr){
+    throw new Error("Could not parse AI response as JSON");
+  }
+}
+
+/* ================= ROADMAP BUILDER ================= */
+function buildRoadmap(analysis){
+  const req = computeRequirement();
+  const targetSPI = Math.min(Math.max(req.requiredSPI, 0), 10);
+  const courseMap = {};
+  (analysis.courseAnalysis||[]).forEach(c=>{ courseMap[c.semester+"::"+c.course] = c; });
+
+  const semesters = state.future.map(sem=>{
+    const semCredits = sem.courses.reduce((a,c)=>a+(Number(c.credits)||0),0);
+    const requiredPts = targetSPI * semCredits;
+
+    const courses = sem.courses.map(c=>{
+      const meta = courseMap[sem.semNum+"::"+c.name] || { difficultyScore:0.5, difficultyLabel:"Medium", traits:[], rationale:"" };
+      return { name:c.name||"Untitled", credits:Number(c.credits)||0, difficultyScore:meta.difficultyScore, difficultyLabel:meta.difficultyLabel, traits:meta.traits||[], rationale:meta.rationale||"", target: targetSPI };
+    });
+
+    // bias targets by relative difficulty within this semester
+    const scores = courses.map(c=>c.difficultyScore);
+    const meanScore = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0.5;
+    const amplitude = 2.2;
+    courses.forEach(c=>{
+      const deviation = (meanScore - c.difficultyScore) * amplitude;
+      c.target = clamp(targetSPI + deviation, 4, 10);
+    });
+
+    // correction pass so weighted sum matches requiredPts exactly
+    correctTargets(courses, requiredPts);
+    courses.forEach(c=> c.target = Math.round(c.target*10)/10);
+
+    return { semNum: sem.semNum, credits: semCredits, targetSPI: semCredits>0 ? requiredPts/semCredits : 0, courses };
+  });
+
+  return { targetSPI, semesters, requirement: req };
+}
+function clamp(v,lo,hi){ return Math.min(hi, Math.max(lo, v)); }
+function correctTargets(courses, requiredPts){
+  for(let iter=0; iter<25; iter++){
+    const sum = courses.reduce((a,c)=>a+c.target*c.credits,0);
+    const diff = requiredPts - sum;
+    if(Math.abs(diff) < 0.005) break;
+    const pool = courses.filter(c=> diff>0 ? c.target<9.999 : c.target>4.001);
+    if(!pool.length) break;
+    const poolCredits = pool.reduce((a,c)=>a+c.credits,0);
+    if(poolCredits<=0) break;
+    const perCreditShare = diff/poolCredits;
+    pool.forEach(c=>{ c.target = clamp(c.target + perCreditShare, 4, 10); });
+  }
+}
+
+/* ================= RENDER ================= */
+const STEPS = ["Goal","History","Future","Roadmap"];
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = topbarHTML() + (state.step===0 ? heroHTML() : trailNavHTML()) + bodyHTML();
+  attachHandlers();
+}
+
+function topbarHTML(){
+  return `<div class="topbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 26 26" fill="none"><path d="M13 2 L3 22 L13 17 L23 22 Z" fill="#c9a227"/></svg>
+      <div>Waypoint<small>ACADEMIC ROADMAP PLANNER</small></div>
+    </div>
+  </div>`;
+}
+
+function trailNavHTML(){
+  const stations = STEPS.map((label,i)=>{
+    const idx=i+1;
+    const cls = idx<state.step ? 'done' : (idx===state.step ? 'current' : '');
+    return `<div class="station ${cls}"><div class="dot"></div><div class="label">${label}</div></div>`;
+  }).join('<div class="seg '+(true?'':'')+'"></div>');
+  // build with segments properly
+  let html = '<div class="trail-nav">';
+  STEPS.forEach((label,i)=>{
+    const idx=i+1;
+    const cls = idx<state.step ? 'done' : (idx===state.step ? 'current' : '');
+    html += `<div class="station ${cls}"><div class="dot"></div><div class="label">${label}</div></div>`;
+    if(i<STEPS.length-1){
+      const segDone = idx<state.step;
+      html += `<div class="seg ${segDone?'done':''}"></div>`;
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
+function heroHTML(){
+  return `<div class="hero">
+    <p class="eyebrow">PLOT YOUR COURSE</p>
+    <h1>Turn your CPI goal into a route you can actually <em>walk</em>.</h1>
+    <p>Most calculators hand you a number and leave you stranded. Waypoint reads your transcript, maps the terrain of every course still ahead, and lays out exactly which grades get you there — semester by semester.</p>
+    <div class="hero-examples">
+      <span class="pill">CPI 7.0 → 8.0 by Sem 5</span>
+      <span class="pill">CPI 6.5 → 8.5 by graduation</span>
+      <span class="pill">Course-wise grade targets</span>
+    </div>
+    <button class="btn btn-primary" id="start-btn">Start plotting →</button>
+  </div>`;
+}
+
+function bodyHTML(){
+  if(state.step===0) return '';
+  if(state.step===1) return panelGoal();
+  if(state.step===2) return panelHistory();
+  if(state.step===3) return panelFuture();
+  if(state.step===4) return panelLoading();
+  if(state.step===5) return panelOutput();
+  return '';
+}
+
+/* ---- Step 1: Goal ---- */
+function panelGoal(){
+  return `<div class="panel">
+    <p class="eyebrow">STEP 01</p>
+    <h1 class="page-title">Set your destination</h1>
+    <p class="lede">Tell us where you stand and where you want to end up.</p>
+    <div class="row3" style="margin-top:28px;">
+      <div class="field">
+        <label>Semesters completed</label>
+        <input type="number" id="in-completed" min="1" max="11" value="${state.completedSemesters}">
+      </div>
+      <div class="field">
+        <label>Target semester</label>
+        <input type="number" id="in-target-sem" min="2" max="12" value="${state.targetSemester}">
+      </div>
+      <div class="field">
+        <label>Target CPI</label>
+        <input type="number" id="in-target-cpi" min="0" max="10" step="0.1" value="${state.targetCPI}">
+      </div>
+    </div>
+    ${state.errorMsg ? `<div class="error-msg">${state.errorMsg}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-primary" id="next-1">Continue →</button>
+    </div>
+  </div>`;
+}
+
+/* ---- Step 2: History ---- */
+function panelHistory(){
+  ensureHistoryShape();
+  const blocks = state.history.map((sem, si)=>{
+    const spi = semSPI(sem.courses);
+    const rows = sem.courses.map((c, ci)=> courseRowHTML(c, si, ci, false)).join('');
+    return `<div class="sem-block">
+      <span class="sem-tag">SEMESTER ${sem.semNum}</span>
+      <span class="sem-cpi-tag">SPI ${sem.courses.length ? spi.toFixed(2) : '—'}</span>
+      <div style="margin-top:14px;">
+        <div class="course-row" style="font-family:var(--mono); font-size:10.5px; letter-spacing:0.6px; color:var(--text-dim); text-transform:uppercase; margin-bottom:2px;">
+          <div>Course</div><div>Credits</div><div>Grade (0–10)</div><div></div>
+        </div>
+        ${rows}
+      </div>
+      <button class="add-course-btn" data-add-history="${si}">+ Add course</button>
+    </div>`;
+  }).join('');
+
+  const cpiNow = computeCPI(state.history);
+  return `<div class="panel">
+    <p class="eyebrow">STEP 02</p>
+    <h1 class="page-title">Your academic history</h1>
+    <p class="lede">Enter every completed course. This is how we learn what you're actually good at.</p>
+    <div style="margin-top:24px;">${blocks}</div>
+    <p style="font-family:var(--mono); font-size:12.5px; color:var(--text-dim);">Current CPI: <strong style="color:var(--brass-bright);">${cpiNow.credits ? cpiNow.cpi.toFixed(2) : '—'}</strong> across ${cpiNow.credits} credits</p>
+    ${state.errorMsg ? `<div class="error-msg">${state.errorMsg}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="back-2">← Back</button>
+      <button class="btn btn-primary" id="next-2">Continue →</button>
+    </div>
+  </div>`;
+}
+
+/* ---- Step 3: Future ---- */
+function panelFuture(){
+  ensureFutureShape();
+  const blocks = state.future.map((sem, si)=>{
+    const rows = sem.courses.map((c, ci)=> courseRowHTML(c, si, ci, true)).join('');
+    return `<div class="sem-block">
+      <span class="sem-tag">SEMESTER ${sem.semNum}</span>
+      <div style="margin-top:14px;">
+        <div class="course-row future" style="font-family:var(--mono); font-size:10.5px; letter-spacing:0.6px; color:var(--text-dim); text-transform:uppercase; margin-bottom:2px;">
+          <div>Course</div><div>Credits</div><div></div>
+        </div>
+        ${rows}
+      </div>
+      <button class="add-course-btn" data-add-future="${si}">+ Add course</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="panel">
+    <p class="eyebrow">STEP 03</p>
+    <h1 class="page-title">The terrain ahead</h1>
+    <p class="lede">List the courses you'll take each semester from here to your target. Credits only — no grades yet, obviously.</p>
+    <div style="margin-top:24px;">${blocks}</div>
+    ${state.errorMsg ? `<div class="error-msg">${state.errorMsg}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="back-3">← Back</button>
+      <button class="btn btn-primary" id="next-3">Generate my roadmap →</button>
+    </div>
+  </div>`;
+}
+
+function courseRowHTML(c, si, ci, isFuture){
+  if(isFuture){
+    return `<div class="course-row future">
+      <input type="text" placeholder="Course name" value="${escapeAttr(c.name)}" data-fcourse="${si}:${ci}:name">
+      <input type="number" min="1" max="6" value="${c.credits}" data-fcourse="${si}:${ci}:credits">
+      <button class="icon-btn" data-remove-future="${si}:${ci}" title="Remove">✕</button>
+    </div>`;
+  }
+  return `<div class="course-row">
+    <input type="text" placeholder="Course name" value="${escapeAttr(c.name)}" data-hcourse="${si}:${ci}:name">
+    <input type="number" min="1" max="6" value="${c.credits}" data-hcourse="${si}:${ci}:credits">
+    <input type="number" min="0" max="10" step="0.5" value="${c.grade}" data-hcourse="${si}:${ci}:grade">
+    <button class="icon-btn" data-remove-history="${si}:${ci}" title="Remove">✕</button>
+  </div>`;
+}
+function escapeAttr(s){ return (s||"").replace(/"/g,'&quot;'); }
+
+/* ---- Step 4: Loading ---- */
+function panelLoading(){
+  return `<div class="panel">
+    <div class="loading-wrap">
+      <svg class="compass" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="28" stroke="#c9a227" stroke-width="2"/>
+        <path d="M32 14 L38 32 L32 50 L26 32 Z" fill="#e3bc3e"/>
+      </svg>
+      <div class="msg" id="loading-msg">Reading your transcript…</div>
+    </div>
+  </div>`;
+}
+
+/* ---- Step 5: Output ---- */
+function panelOutput(){
+  const rm = state.roadmap, a = state.analysis;
+  if(!rm || !a) return panelLoading();
+
+  const feasWarn = !rm.requirement.feasible ? `<div class="feasibility-warn">Heads up — hitting CPI ${state.targetCPI} by semester ${state.targetSemester} would require an average SPI of ${rm.requirement.requiredSPI.toFixed(2)}, which exceeds the 10.0 ceiling. The highest CPI mathematically reachable by then is <strong>${rm.requirement.maxPossibleCPI.toFixed(2)}</strong>. The targets below are capped at 10 and get you as close as possible.</div>` : '';
+
+  const chipRow = (label, items, cls) => items && items.length ? `<div style="margin-bottom:14px;"><div style="font-family:var(--mono); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;">${label}</div>${items.map(i=>`<span class="chip ${cls}">${i}</span>`).join('')}</div>` : '';
+
+  const semBlocks = rm.semesters.map(sem=>{
+    const rows = sem.courses.map(c=>{
+      const diffClass = c.difficultyScore<0.34 ? 'low' : (c.difficultyScore<0.67 ? 'med' : 'high');
+      return `<tr>
+        <td>${c.name}<span class="rationale">${c.rationale||''}</span></td>
+        <td style="font-family:var(--mono); color:var(--text-dim);">${c.credits}</td>
+        <td><span class="diff-tag ${diffClass}">${c.difficultyLabel||'—'}</span></td>
+        <td class="grade-target">${c.target.toFixed(1)}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="sem-target-block">
+      <div class="sem-target-head">
+        <h3>Semester ${sem.semNum}</h3>
+        <span class="spi-tag">Target SPI ${sem.targetSPI.toFixed(2)}</span>
+      </div>
+      <table class="targets">
+        <thead><tr><th>Course</th><th>Credits</th><th>Difficulty (for you)</th><th>Target grade</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  return `<div id="pdf-target">
+  <div class="panel">
+    <p class="eyebrow">YOUR ROADMAP</p>
+    <h1 class="page-title">From ${rm.requirement.completedCPI.toFixed(2)} to ${state.targetCPI.toFixed(2)}, mapped out</h1>
+    ${feasWarn}
+
+    <div class="status-grid">
+      <div class="stat-cell"><div class="num">${rm.requirement.completedCPI.toFixed(2)}</div><div class="lbl">Current CPI</div></div>
+      <div class="stat-cell"><div class="num">${rm.requirement.completedCredits}</div><div class="lbl">Credits completed</div></div>
+      <div class="stat-cell"><div class="num">${state.targetCPI.toFixed(2)}</div><div class="lbl">Target CPI</div></div>
+      <div class="stat-cell"><div class="num">Sem ${state.targetSemester}</div><div class="lbl">Target semester</div></div>
+    </div>
+
+    <div class="section-title">Required performance <span class="tag">avg SPI ${rm.targetSPI.toFixed(2)}</span></div>
+    <div class="trail-card">
+      ${trailSVG(rm)}
+      <div class="trail-legend">
+        <div class="lg"><span class="sw" style="background:#7a9471;"></span>Plays to your strengths</div>
+        <div class="lg"><span class="sw" style="background:#c9a227;"></span>On target</div>
+        <div class="lg"><span class="sw" style="background:#b25539;"></span>Steeper climb</div>
+      </div>
+    </div>
+
+    <div class="section-title">Your academic profile</div>
+    ${chipRow('Strengths', a.strengths, 'sage')}
+    ${chipRow('Average', a.average, 'neutral')}
+    ${chipRow('Watch areas', a.weaknesses, 'rust')}
+    <div class="explain-card"><p>${a.profile||''}</p></div>
+
+    <div class="section-title">Personalized course targets</div>
+    ${semBlocks}
+
+    <div class="section-title">Strategy recommendations</div>
+    <ul class="recs">${(a.recommendations||[]).map((r,i)=>`<li><span class="num">${String(i+1).padStart(2,'0')}</span><span>${r}</span></li>`).join('')}</ul>
+  </div>
+  </div>
+
+  <div class="download-bar">
+    <button class="btn btn-primary" id="dl-pdf">Download PDF report</button>
+    <button class="btn btn-ghost" id="dl-png">Download PNG</button>
+  </div>
+  <div class="restart-link" id="restart">↺ Start a new roadmap</div>`;
+}
+
+function trailSVG(rm){
+  const w = 900, h = 230, padX = 40, padY = 30;
+  const allCourses = [];
+  rm.semesters.forEach(sem=> sem.courses.forEach(c=> allCourses.push({...c, semNum:sem.semNum})));
+  if(allCourses.length===0) return '<svg viewBox="0 0 900 230"></svg>';
+  const n = allCourses.length;
+  const stepX = (w-2*padX)/Math.max(n-1,1);
+  const baseline = h-50;
+  const peakSpan = 130;
+
+  const pts = allCourses.map((c,i)=>{
+    const x = padX + i*stepX;
+    const y = baseline - c.difficultyScore*peakSpan;
+    return {x,y,c};
+  });
+
+  let path = `M ${pts[0].x} ${baseline} `;
+  pts.forEach(p=> path += `L ${p.x} ${p.y} `);
+  path += `L ${pts[pts.length-1].x} ${baseline} Z`;
+
+  let line = `M ${pts[0].x} ${pts[0].y} `;
+  pts.slice(1).forEach(p=> line += `L ${p.x} ${p.y} `);
+
+  const dots = pts.map(p=>{
+    const color = p.c.difficultyScore<0.34 ? '#7a9471' : (p.c.difficultyScore<0.67 ? '#c9a227' : '#b25539');
+    return `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${color}" stroke="#f3ead6" stroke-width="1.5"/>
+    <text x="${p.x}" y="${p.y-12}" font-family="IBM Plex Mono" font-size="9" fill="#5c5440" text-anchor="middle">${p.c.target.toFixed(1)}</text>`;
+  }).join('');
+
+  // semester dividers + labels
+  let semMarkers = '';
+  let lastSem = null, idx=0;
+  pts.forEach((p,i)=>{
+    if(p.c.semNum!==lastSem){
+      semMarkers += `<line x1="${p.x}" y1="${baseline+6}" x2="${p.x}" y2="${baseline-2}" stroke="#5c5440" stroke-width="1"/>
+      <text x="${p.x}" y="${baseline+22}" font-family="IBM Plex Mono" font-size="10" fill="#5c5440" text-anchor="middle">SEM ${p.c.semNum}</text>`;
+      lastSem = p.c.semNum;
+    }
+  });
+
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${padX}" y1="${baseline}" x2="${w-padX}" y2="${baseline}" stroke="#5c5440" stroke-width="1" stroke-dasharray="2 3"/>
+    <path d="${path}" fill="#c9a227" fill-opacity="0.12"/>
+    <path d="${line}" fill="none" stroke="#c9a227" stroke-width="2"/>
+    ${dots}
+    ${semMarkers}
+  </svg>`;
+}
+
+/* ================= HANDLERS ================= */
+function attachHandlers(){
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+
+  if($('#start-btn')) $('#start-btn').onclick = ()=>{ state.step=1; state.errorMsg=""; render(); };
+
+  if($('#next-1')) $('#next-1').onclick = ()=>{
+    const c = parseInt($('#in-completed').value)||0;
+    const t = parseInt($('#in-target-sem').value)||0;
+    const cpi = parseFloat($('#in-target-cpi').value);
+    if(c<1){ state.errorMsg="Enter at least 1 completed semester."; render(); return; }
+    if(t<=c){ state.errorMsg="Target semester must be after your completed semesters."; render(); return; }
+    if(isNaN(cpi)||cpi<0||cpi>10){ state.errorMsg="Target CPI must be between 0 and 10."; render(); return; }
+    state.completedSemesters=c; state.targetSemester=t; state.targetCPI=cpi; state.errorMsg="";
+    ensureHistoryShape(); ensureFutureShape();
+    state.step=2; render();
+  };
+
+  if($('#back-2')) $('#back-2').onclick = ()=>{ state.step=1; render(); };
+  if($('#next-2')) $('#next-2').onclick = ()=>{
+    const incomplete = state.history.some(s=> s.courses.some(c=> !c.name.trim()));
+    if(incomplete){ state.errorMsg="Every course needs a name before continuing."; render(); return; }
+    state.errorMsg="";
+    state.step=3; render();
+  };
+
+  if($('#back-3')) $('#back-3').onclick = ()=>{ state.step=2; render(); };
+  if($('#next-3')) $('#next-3').onclick = async ()=>{
+    const incomplete = state.future.some(s=> s.courses.some(c=> !c.name.trim()));
+    if(incomplete){ state.errorMsg="Every future course needs a name before continuing."; render(); return; }
+    state.errorMsg="";
+    state.step=4; render();
+    const msgs = ["Reading your transcript…","Mapping the terrain ahead…","Calibrating difficulty for you…","Drawing your route…"];
+    let mi=0;
+    const interval = setInterval(()=>{ mi=(mi+1)%msgs.length; const el=document.getElementById('loading-msg'); if(el) el.textContent=msgs[mi]; }, 1300);
+    try{
+      const analysis = await callAIAnalysis();
+      state.analysis = analysis;
+      state.roadmap = buildRoadmap(analysis);
+      clearInterval(interval);
+      state.step=5; render();
+    }catch(e){
+      clearInterval(interval);
+      console.error(e);
+      state.errorMsg = "Couldn't generate your roadmap — " + (e && e.message ? e.message : "unknown error") + ". If you're viewing this as a downloaded file outside Claude, the AI step needs to run inside the Claude chat interface.";
+      state.step=3; render();
+    }
+  };
+
+  // history course field edits
+  $$('[data-hcourse]').forEach(el=>{
+    el.oninput = ()=>{
+      const [si,ci,field] = el.getAttribute('data-hcourse').split(':');
+      const c = state.history[si].courses[ci];
+      c[field] = field==='name' ? el.value : Number(el.value);
+      if(field!=='name'){
+        // live-update SPI tag without full rerender for smoothness on number fields too -> simplest: full render on blur instead
+      }
+    };
+    el.onblur = render;
+  });
+  $$('[data-add-history]').forEach(el=>{
+    el.onclick = ()=>{ state.history[el.getAttribute('data-add-history')].courses.push(freshCourse()); render(); };
+  });
+  $$('[data-remove-history]').forEach(el=>{
+    el.onclick = ()=>{
+      const [si,ci] = el.getAttribute('data-remove-history').split(':');
+      state.history[si].courses.splice(ci,1);
+      if(state.history[si].courses.length===0) state.history[si].courses.push(freshCourse());
+      render();
+    };
+  });
+
+  // future course field edits
+  $$('[data-fcourse]').forEach(el=>{
+    el.oninput = ()=>{
+      const [si,ci,field] = el.getAttribute('data-fcourse').split(':');
+      const c = state.future[si].courses[ci];
+      c[field] = field==='name' ? el.value : Number(el.value);
+    };
+    el.onblur = render;
+  });
+  $$('[data-add-future]').forEach(el=>{
+    el.onclick = ()=>{ state.future[el.getAttribute('data-add-future')].courses.push(freshFutureCourse()); render(); };
+  });
+  $$('[data-remove-future]').forEach(el=>{
+    el.onclick = ()=>{
+      const [si,ci] = el.getAttribute('data-remove-future').split(':');
+      state.future[si].courses.splice(ci,1);
+      if(state.future[si].courses.length===0) state.future[si].courses.push(freshFutureCourse());
+      render();
+    };
+  });
+
+  if($('#restart')) $('#restart').onclick = ()=>{
+    Object.assign(state, { step:0, completedSemesters:2, targetSemester:5, targetCPI:8.0, history:[], future:[], analysis:null, roadmap:null, errorMsg:"" });
+    render();
+  };
+
+  if($('#dl-pdf')) $('#dl-pdf').onclick = downloadPDF;
+  if($('#dl-png')) $('#dl-png').onclick = downloadPNG;
+}
+
+async function downloadPNG(){
+  const node = document.getElementById('pdf-target');
+  const canvas = await html2canvas(node, { backgroundColor:'#12141c', scale:2 });
+  const link = document.createElement('a');
+  link.download = 'academic-roadmap.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+async function downloadPDF(){
+  const node = document.getElementById('pdf-target');
+  const canvas = await html2canvas(node, { backgroundColor:'#12141c', scale:2 });
+  const imgData = canvas.toDataURL('image/png');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p','pt','a4');
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const imgW = pageW;
+  const imgH = canvas.height * (imgW/canvas.width);
+  let heightLeft = imgH, position = 0;
+  pdf.addImage(imgData,'PNG',0,position,imgW,imgH);
+  heightLeft -= pageH;
+  while(heightLeft > 0){
+    position = heightLeft - imgH;
+    pdf.addPage();
+    pdf.addImage(imgData,'PNG',0,position,imgW,imgH);
+    heightLeft -= pageH;
+  }
+  pdf.save('academic-roadmap.pdf');
+}
+
+render();
+</script>
+</body>
+</html>

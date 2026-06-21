@@ -670,7 +670,7 @@ function trailSVG(rm){
   const dots = pts.map(p=>{
     const color = p.c.difficultyScore<0.34 ? '#7a9471' : (p.c.difficultyScore<0.67 ? '#c9a227' : '#b25539');
     return `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${color}" stroke="#f3ead6" stroke-width="1.5"/>
-    <text x="${p.x}" y="${p.y-12}" font-family="IBM Plex Mono" font-size="9" fill="#5c5440" text-anchor="middle">${p.c.target.toFixed(1)}</text>`;
+    <text x="${p.x}" y="${p.y-12}" font-family="IBM Plex Mono" font-size="9" fill="#5c5440" text-anchor="middle">${p.c.recommendedGrade}</text>`;
   }).join('');
 
   // semester dividers + labels

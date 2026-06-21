@@ -585,7 +585,7 @@ function panelOutput(){
         <td>${c.name}<span class="rationale">${c.rationale||''}</span></td>
         <td style="font-family:var(--mono); color:var(--text-dim);">${c.credits}</td>
         <td><span class="diff-tag ${diffClass}">${c.difficultyLabel||'—'}</span></td>
-        <td class="grade-target">${c.target.toFixed(1)}</td>
+        <td class="grade-target">${c.recommendedGrade}</td>
       </tr>`;
     }).join('');
     return `<div class="sem-target-block">

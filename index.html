@@ -359,9 +359,12 @@ function buildRoadmap(analysis){
     });
 
     // correction pass so weighted sum matches requiredPts exactly
-    correctTargets(courses, requiredPts);
-    courses.forEach(c=> c.target = Math.round(c.target*10)/10);
+correctTargets(courses, requiredPts);
 
+courses.forEach(c=>{
+  c.target = Math.round(c.target * 10) / 10;
+  c.recommendedGrade = Math.round(c.target);
+});
     return { semNum: sem.semNum, credits: semCredits, targetSPI: semCredits>0 ? requiredPts/semCredits : 0, courses };
   });
 
